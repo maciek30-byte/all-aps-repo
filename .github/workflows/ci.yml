@@ -14,31 +14,36 @@ jobs:
   main:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          filter: tree:0
           fetch-depth: 0
 
-      
-      # This enables task distribution via Nx Cloud
-      # Run this command as early as possible, before dependencies are installed
-      # Learn more at https://nx.dev/ci/reference/nx-cloud-cli#npx-nxcloud-startcirun
-      # Uncomment this line to enable task distribution
-      # - run: npx nx start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="build"
-
-      
-      # Cache node_modules
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-       
-      - run: npm ci --legacy-peer-deps
+          cache: 'pnpm'
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
-      # Prepend any command with "nx-cloud record --" to record its logs to Nx Cloud
-      # - run: npx nx-cloud record -- echo Hello World
-      - run: npx nx run-many -t lint test build
-      # Nx Cloud recommends fixes for failures to help you get CI green faster. Learn more: https://nx.dev/ci/features/self-healing-ci
-      - run: npx nx fix-ci
-        if: always()
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup NX
+        uses: nrwl/nx-set-shas@v4
+
+      - name: TypeScript check (affected)
+        run: pnpm nx affected -t typecheck --parallel=3
+
+      - name: Lint (affected)
+        run: pnpm nx affected -t lint --parallel=3
+
+      - name: Test (affected)  
+        run: pnpm nx affected -t test --parallel=3 --ci --coverage --watchAll=false
+
+      - name: Build (affected)
+        run: pnpm nx affected -t build --parallel=3
